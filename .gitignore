@@ -1,0 +1,21 @@
+# Secrets
+.env
+
+# Logs
+logs/
+
+# Données brutes
+data/
+
+# dbt
+dbt/target/
+dbt/dbt_packages/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db

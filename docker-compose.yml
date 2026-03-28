@@ -1,0 +1,109 @@
+version: "3.8"
+
+services:
+
+  # ========== POSTGRESQL ==========
+  # Stocke toutes tes données (staging, dwh, reporting, airflow)
+  postgres:
+    image: postgres:15
+    container_name: etl_postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d
+    networks:
+      - etl-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ========== AIRFLOW WEBSERVER ==========
+  # L'interface web pour voir tes DAGs (localhost:8080)
+  airflow-webserver:
+    image: apache/airflow:2.8.3
+    container_name: etl_airflow_webserver
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/airflow_db
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USER}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./data:/opt/airflow/data
+    command: webserver
+    networks:
+      - etl-network
+
+  # ========== AIRFLOW SCHEDULER ==========
+  # Le moteur qui exécute tes DAGs automatiquement
+  airflow-scheduler:
+    image: apache/airflow:2.8.3
+    container_name: etl_airflow_scheduler
+    restart: unless-stopped
+    depends_on:
+      - airflow-webserver
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/airflow_db
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./data:/opt/airflow/data
+    command: scheduler
+    networks:
+      - etl-network
+
+  # ========== DBT ==========
+  # Exécute les transformations SQL sur tes données
+  dbt:
+    image: ghcr.io/dbt-labs/dbt-postgres:1.7.0
+    container_name: etl_dbt
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DBT_PROFILES_DIR: /dbt
+    volumes:
+      - ./dbt:/dbt
+    networks:
+      - etl-network
+    entrypoint: ["tail", "-f", "/dev/null"]
+
+# ========== VOLUMES ==========
+# Permet de garder les données même si le conteneur redémarre
+volumes:
+  postgres_data:
+
+# ========== NETWORKS ==========
+# Permet aux conteneurs de se parler entre eux
+networks:
+  etl-network:
+    driver: bridge
+
+
