@@ -9,7 +9,7 @@ services:
     container_name: etl_postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -24,6 +24,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+
 
   # ========== AIRFLOW WEBSERVER ==========
   # L'interface web pour voir tes DAGs (localhost:8080)
