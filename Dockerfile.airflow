@@ -1,0 +1,23 @@
+# ==========================================
+# IMAGE DE BASE AIRFLOW
+# ==========================================
+FROM apache/airflow:2.8.3
+
+# ==========================================
+# PASSER EN ROOT POUR INSTALLER DES PACKAGES
+# ==========================================
+USER root
+
+# ==========================================
+# INSTALLATION DU CLIENT DOCKER
+# Permet à Airflow d'exécuter "docker exec"
+# ==========================================
+RUN apt-get update && \
+    apt-get install -y docker.io && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# ==========================================
+# RETOUR À L'UTILISATEUR AIRFLOW
+# ==========================================
+USER airflow
