@@ -1,23 +1,26 @@
-# ==========================================
-# IMAGE DE BASE AIRFLOW
-# ==========================================
 FROM apache/airflow:2.8.3
 
-# ==========================================
-# PASSER EN ROOT POUR INSTALLER DES PACKAGES
-# ==========================================
 USER root
 
-# ==========================================
-# INSTALLATION DU CLIENT DOCKER
-# Permet à Airflow d'exécuter "docker exec"
-# ==========================================
 RUN apt-get update && \
     apt-get install -y docker.io && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # ==========================================
-# RETOUR À L'UTILISATEUR AIRFLOW
+# CRÉATION DU DOSSIER LOGS DBT
 # ==========================================
+RUN mkdir -p /opt/airflow/dbt/logs && \
+    chmod -R 777 /opt/airflow/dbt/logs
+
 USER airflow
+
+# ==========================================
+# INSTALLATION DBT + SNOWFLAKE
+# ==========================================
+RUN pip install --no-cache-dir \
+    dbt-core==1.7.0 \
+    dbt-snowflake==1.7.0 \
+    snowflake-connector-python \
+    pandas \
+    snowflake-sqlalchemy
