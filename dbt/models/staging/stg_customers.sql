@@ -1,4 +1,5 @@
--- Nettoyage de la table customers brute
+-- Nettoyage de la table customers brute 
+-- table client 
 SELECT
     customer_id,
     customer_unique_id,

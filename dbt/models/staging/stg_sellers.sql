@@ -1,4 +1,5 @@
 -- Nettoyage de la table sellers brute
+-- table vendeur
 SELECT
     seller_id,
     seller_city     AS city,

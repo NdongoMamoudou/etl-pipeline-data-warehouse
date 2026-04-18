@@ -1,4 +1,5 @@
 -- Nettoyage de la table products brute
+-- table produit
 SELECT
     product_id,
     product_category_name           AS category,
