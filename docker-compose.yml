@@ -1,11 +1,158 @@
 
+# version: "3.8"
+
+# services:
+
+#   # ==========================================
+#   # POSTGRESQL
+#   # Base de données principale (staging + dwh + airflow)
+#   # ==========================================
+#   postgres:
+#     image: postgres:15
+#     container_name: etl_postgres
+#     restart: unless-stopped
+#     ports:
+#       - "5433:5432"
+#     environment:
+#       POSTGRES_USER: ${POSTGRES_USER}
+#       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+#       POSTGRES_DB: ${POSTGRES_DB}
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#       - ./init:/docker-entrypoint-initdb.d
+#     networks:
+#       - etl-network
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+
+#   # ==========================================
+#   # AIRFLOW WEBSERVER
+#   # Interface web (http://localhost:8080)
+#   # ==========================================
+#   airflow-webserver:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile.airflow
+#     container_name: etl_airflow_webserver
+#     restart: unless-stopped
+#     depends_on:
+#       postgres:
+#         condition: service_healthy
+#     environment:
+#       AIRFLOW__CORE__EXECUTOR: LocalExecutor
+#       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/airflow_db
+#       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+#       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+#       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+
+#       # Création automatique du user admin
+#       _AIRFLOW_DB_MIGRATE: "true"
+#       _AIRFLOW_WWW_USER_CREATE: "true"
+#       _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USER}
+#       _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+
+#     ports:
+#       - "8080:8080"
+
+#     volumes:
+#       - ./dags:/opt/airflow/dags
+#       - ./logs:/opt/airflow/logs
+#       - ./plugins:/opt/airflow/plugins
+#       - ./data:/opt/airflow/data
+
+#       # 🔥 IMPORTANT
+#       # Permet à Airflow d'accéder à Docker
+#       - /var/run/docker.sock:/var/run/docker.sock
+
+#     command: webserver
+#     networks:
+#       - etl-network
+
+#   # ==========================================
+#   # AIRFLOW SCHEDULER
+#   # Exécute les DAGs automatiquement
+#   # ==========================================
+#   airflow-scheduler:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile.airflow
+#     container_name: etl_airflow_scheduler
+#     restart: unless-stopped
+#     depends_on:
+#       - airflow-webserver
+#     environment:
+#       AIRFLOW__CORE__EXECUTOR: LocalExecutor
+#       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/airflow_db
+#       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+#       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+#       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+
+#     volumes:
+#       - ./dags:/opt/airflow/dags
+#       - ./logs:/opt/airflow/logs
+#       - ./plugins:/opt/airflow/plugins
+#       - ./data:/opt/airflow/data
+
+#       # 🔥 ESSENTIEL
+#       # Permet à scheduler d'exécuter docker exec
+#       - /var/run/docker.sock:/var/run/docker.sock
+
+#     command: scheduler
+#     networks:
+#       - etl-network
+
+#   # ==========================================
+#   # DBT
+#   # Conteneur dédié aux transformations
+#   # ==========================================
+#   dbt:
+#     image: ghcr.io/dbt-labs/dbt-postgres:1.7.0
+#     container_name: etl_dbt
+#     restart: "no"
+#     depends_on:
+#       postgres:
+#         condition: service_healthy
+
+#     environment:
+#       DBT_PROFILES_DIR: /dbt
+
+#     volumes:
+#       - ./dbt:/dbt
+
+#     networks:
+#       - etl-network
+
+#     # Empêche le conteneur de s'arrêter
+#     entrypoint: ["tail", "-f", "/dev/null"]
+
+# # ==========================================
+# # VOLUMES
+# # ==========================================
+# volumes:
+#   postgres_data:
+
+# # ==========================================
+# # NETWORK
+# # ==========================================
+# networks:
+#   etl-network:
+#     driver: bridge
+
+
+
+
+
+
+
 version: "3.8"
 
 services:
 
   # ==========================================
-  # POSTGRESQL
-  # Base de données principale (staging + dwh + airflow)
+  # POSTGRESQL — uniquement pour Airflow
   # ==========================================
   postgres:
     image: postgres:15
@@ -16,21 +163,19 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_DB: airflow_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init:/docker-entrypoint-initdb.d
     networks:
       - etl-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d airflow_db"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   # ==========================================
   # AIRFLOW WEBSERVER
-  # Interface web (http://localhost:8080)
   # ==========================================
   airflow-webserver:
     build:
@@ -47,33 +192,31 @@ services:
       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-
-      # Création automatique du user admin
       _AIRFLOW_DB_MIGRATE: "true"
       _AIRFLOW_WWW_USER_CREATE: "true"
       _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USER}
       _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
-
+      # Credentials Snowflake pour le DAG
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER}
+      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD}
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE}
+      SNOWFLAKE_SCHEMA: staging
     ports:
       - "8080:8080"
-
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
-      - ./plugins:/opt/airflow/plugins
       - ./data:/opt/airflow/data
-
-      # 🔥 IMPORTANT
-      # Permet à Airflow d'accéder à Docker
+      - ./dbt:/opt/airflow/dbt
       - /var/run/docker.sock:/var/run/docker.sock
-
     command: webserver
     networks:
       - etl-network
 
   # ==========================================
   # AIRFLOW SCHEDULER
-  # Exécute les DAGs automatiquement
   # ==========================================
   airflow-scheduler:
     build:
@@ -89,57 +232,25 @@ services:
       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER}
+      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD}
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE}
+      SNOWFLAKE_SCHEMA: staging
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
-      - ./plugins:/opt/airflow/plugins
       - ./data:/opt/airflow/data
-
-      # 🔥 ESSENTIEL
-      # Permet à scheduler d'exécuter docker exec
+      - ./dbt:/opt/airflow/dbt
       - /var/run/docker.sock:/var/run/docker.sock
-
     command: scheduler
     networks:
       - etl-network
 
-  # ==========================================
-  # DBT
-  # Conteneur dédié aux transformations
-  # ==========================================
-  dbt:
-    image: ghcr.io/dbt-labs/dbt-postgres:1.7.0
-    container_name: etl_dbt
-    restart: "no"
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-    environment:
-      DBT_PROFILES_DIR: /dbt
-
-    volumes:
-      - ./dbt:/dbt
-
-    networks:
-      - etl-network
-
-    # Empêche le conteneur de s'arrêter
-    entrypoint: ["tail", "-f", "/dev/null"]
-
-# ==========================================
-# VOLUMES
-# ==========================================
 volumes:
   postgres_data:
 
-# ==========================================
-# NETWORK
-# ==========================================
 networks:
   etl-network:
     driver: bridge
-
-
-
